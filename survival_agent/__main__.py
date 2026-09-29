@@ -11,7 +11,7 @@
   python -m survival_agent revenue 9900 "크몽 판매 1건"   실제 입금액 기록
   python -m survival_agent execute 5               실행 준비된 제안(유튜브 업로드·사이트 배포)을 한 줄로 실행
   python -m survival_agent youtube-auth            유튜브 계정 연결(최초 1회)
-  python -m survival_agent render-batch content/batch_20260929/scripts.json [--tts edge]   브랜드 쇼츠 묶음 렌더링
+  python -m survival_agent render-batch content/batch_20260929/scripts.json [--tts google|edge] [--voice 이름]   브랜드 쇼츠 묶음 렌더링
   python -m survival_agent queue-batch content/batch_20260929/scripts.json                 검수 통과분을 발행 대기열로
   python -m survival_agent dashboard               현황판 → workspace/dashboard.html (사이클마다 자동 갱신)
 """
@@ -43,7 +43,8 @@ def main(argv=None) -> int:
     p = sub.add_parser("execute"); p.add_argument("id", type=int)
     sub.add_parser("youtube-auth")
     sub.add_parser("dashboard")
-    p = sub.add_parser("render-batch"); p.add_argument("scripts"); p.add_argument("--tts", choices=["edge"], default=None)
+    p = sub.add_parser("render-batch"); p.add_argument("scripts"); p.add_argument("--tts", choices=["google", "edge"], default=None)
+    p.add_argument("--voice", default=None)
     p.add_argument("--only", nargs="*")
     p = sub.add_parser("queue-batch"); p.add_argument("scripts"); p.add_argument("--only", nargs="*")
     a = ap.parse_args(argv)
@@ -56,7 +57,7 @@ def main(argv=None) -> int:
         print("유튜브 인증 완료 → data/youtube_token.json")
         return 0
     if a.cmd == "render-batch":
-        remotion.render_batch(Path(a.scripts), tts=a.tts, only=a.only)
+        remotion.render_batch(Path(a.scripts), tts=a.tts, only=a.only, voice=a.voice)
         return 0
     if a.cmd == "dashboard":  # 가동 전에도 준비 현황을 볼 수 있게 init 확인보다 먼저
         print(f"현황판: {dashboard.write(DATA_DIR, WORKSPACE_DIR, settings)}")

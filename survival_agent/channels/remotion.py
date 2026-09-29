@@ -3,8 +3,11 @@
   python -m survival_agent render-batch content/batch_20260929/scripts.json [--tts edge]
 
 - 대본 형식: content/batch_20260929/scripts.json 참고. 문구의 ==강조== 는 형광펜으로 그어짐
-- --tts edge: 무료 edge-tts(마이크로소프트 엣지 음성)로 장면별 한국어 음성 생성 → 장면 길이를 음성에 맞춤
-  ※ edge-tts 는 공식 상용 API 가 아님. 수익 채널에 쓰기 전 약관 확인 필요 (대안: Google Cloud TTS)
+- --tts google: Google Cloud TTS Chirp 3 HD(가장 자연스러운 등급). 환경변수 GOOGLE_TTS_API_KEY 필요
+  기본 목소리 ko-KR-Chirp3-HD-Charon(차분한 남성). 여성 대안 ko-KR-Chirp3-HD-Kore → --voice 로 지정
+- --tts edge: 무료 edge-tts. 기본 ko-KR-InJoonNeural(남성), 대안 ko-KR-SunHiNeural(여성)
+  ※ edge-tts 는 공식 상용 API 가 아님. 수익 채널에 쓰기 전 약관 확인 필요
+- 장면 길이는 음성 길이 + 0.6초로 자동 조정. 내레이션은 대본의 narration(말하듯 쓴 문장)을 읽음
 - 크롬이 자동으로 안 잡히면 환경변수 REMOTION_BROWSER 에 크롬(헤드리스 셸) 경로 지정
 """
 from __future__ import annotations
@@ -40,12 +43,37 @@ def brand_props(brand: dict) -> dict:
     return {"name": brand["name"], "sealText": brand["seal_text"], "footer": brand["footer"], "colors": brand["colors"]}
 
 
-def edge_tts(text: str, out: Path, voice: str = "ko-KR-SunHiNeural", rate: str = "+8%") -> None:
+DEFAULT_VOICE = {"google": "ko-KR-Chirp3-HD-Charon", "edge": "ko-KR-InJoonNeural"}
+
+
+def edge_tts(text: str, out: Path, voice: str, rate: str = "+5%") -> None:
     import edge_tts as et  # 선택 의존성
 
     async def run():
         await et.Communicate(text, voice, rate=rate).save(str(out))
     asyncio.run(run())
+
+
+def google_tts(text: str, out: Path, voice: str, rate: float = 1.05) -> None:
+    """Google Cloud Text-to-Speech REST (API 키). Chirp 3 HD 는 SSML·피치 대신 자연스러운 기본 억양을 씀."""
+    import base64
+    import urllib.request
+
+    key = os.environ.get("GOOGLE_TTS_API_KEY", "")
+    if not key:
+        raise RuntimeError("GOOGLE_TTS_API_KEY 환경변수가 없음")
+    body = json.dumps({"input": {"text": text},
+                       "voice": {"languageCode": voice[:5], "name": voice},
+                       "audioConfig": {"audioEncoding": "MP3", "speakingRate": rate}}).encode()
+    req = urllib.request.Request(f"https://texttospeech.googleapis.com/v1/text:synthesize?key={key}",
+                                 data=body, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        out.write_bytes(base64.b64decode(json.loads(r.read())["audioContent"]))
+
+
+def synthesize(provider: str, text: str, out: Path, voice: str | None) -> None:
+    v = voice or DEFAULT_VOICE[provider]
+    (google_tts if provider == "google" else edge_tts)(text, out, v)
 
 
 def guard(video: dict, terms: list[str]) -> None:
@@ -57,15 +85,15 @@ def guard(video: dict, terms: list[str]) -> None:
         raise ValueError(f"{video['slug']}: 개인정보 의심 문구 → 렌더링 중단 ({', '.join(sorted(set(hits)))})")
 
 
-def build_props(video: dict, brand: dict, tts: str | None, audio_root: Path) -> dict:
+def build_props(video: dict, brand: dict, tts: str | None, audio_root: Path, voice: str | None = None) -> dict:
     scenes = []
     for i, s in enumerate(video["scenes"]):
         sc = {k: s[k] for k in ("kind", "text", "sub", "label") if k in s}
-        if tts == "edge":
+        if tts:
             rel = f"audio/{video['slug']}/{i:02d}.mp3"
             mp3 = audio_root / rel
             mp3.parent.mkdir(parents=True, exist_ok=True)
-            edge_tts(s.get("narration") or plain(s["text"]), mp3)
+            synthesize(tts, s.get("narration") or plain(s["text"]), mp3, voice)
             sc["audio"] = rel
             sc["durationInFrames"] = round((shorts.audio_seconds(mp3) + 0.6) * FPS) + (TRANSITION_FRAMES if i else 0)
         else:
@@ -83,7 +111,8 @@ def _npx(*args: str) -> None:
         raise RuntimeError(f"remotion 실패: {(p.stderr or p.stdout)[-800:]}")
 
 
-def render_batch(scripts_path: Path, tts: str | None = None, only: list[str] | None = None, log=print) -> list[dict]:
+def render_batch(scripts_path: Path, tts: str | None = None, only: list[str] | None = None, log=print,
+                 voice: str | None = None) -> list[dict]:
     batch = json.loads(scripts_path.read_text(encoding="utf-8"))
     brand = json.loads((scripts_path.parent / batch["brand"]).read_text(encoding="utf-8"))
     terms = redact.load_terms(DATA_DIR)
@@ -96,7 +125,7 @@ def render_batch(scripts_path: Path, tts: str | None = None, only: list[str] | N
         if only and v["slug"] not in only:
             continue
         guard(v, terms)
-        props = build_props(v, brand, tts, VIDEO_DIR / "public")
+        props = build_props(v, brand, tts, VIDEO_DIR / "public", voice)
         pf = props_dir / f"{v['slug']}.json"
         pf.write_text(json.dumps(props, ensure_ascii=False), encoding="utf-8")
         mp4, png = out_dir / f"{v['slug']}.mp4", out_dir / f"{v['slug']}.png"

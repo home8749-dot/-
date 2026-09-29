@@ -94,13 +94,16 @@ python -m survival_agent revenue 29000 "크몽 가이드 1건"   # 실제 입금
 ```bash
 cd video && npm i && cd ..                        # 최초 1회 (Node 22 이상)
 python -m survival_agent render-batch content/batch_20260929/scripts.json             # 자막형(무음)
-pip install edge-tts
-python -m survival_agent render-batch content/batch_20260929/scripts.json --tts edge  # 한국어 음성 입힘
+export GOOGLE_TTS_API_KEY=...                                                          # 권장: 가장 자연스러운 Chirp 3 HD
+python -m survival_agent render-batch content/batch_20260929/scripts.json --tts google                 # 기본 목소리 Charon(차분한 남성)
+python -m survival_agent render-batch content/batch_20260929/scripts.json --tts google --voice ko-KR-Chirp3-HD-Kore   # 여성
+pip install edge-tts && python -m survival_agent render-batch content/batch_20260929/scripts.json --tts edge   # 무료 대안
 python -m survival_agent queue-batch content/batch_20260929/scripts.json --only 01-notice-3-spots 02-psst
 python -m survival_agent execute <번호>                                               # 유튜브·인스타 발행
 ```
 
 - 템플릿: `video/src` (원고지 격자 · 형광펜 강조 · 도장). 미리보기·수정은 `cd video && npx remotion studio`
+- 화면 문구(`text`·`sub`)와 읽는 문장(`narration`)은 따로 씀. 내레이션은 말하듯 풀어 쓴 존댓말, 숫자·영문은 한글 발음으로(예: 삼십 쪽, 에스엔에스)
 - 대본 문구의 `==강조==` 는 형광펜으로 그어짐. 장면 종류: hook(첫 3초) · step(단계) · cta(마무리)
 - 채널명을 바꾸면 `brand.json` 만 고치고 다시 렌더링
 - ※ edge-tts 는 마이크로소프트 엣지 읽어주기 음성을 쓰는 비공식 도구. 수익 채널에 쓰기 전 약관 확인 필요(대안: Google Cloud TTS)

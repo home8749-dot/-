@@ -329,3 +329,22 @@ def test_remotion_props_and_queue(tmp_path):
     ids = remotion.queue_for_review(scripts, ap, tmp_path / "ws", only=["02-psst"])
     assert len(ids) == 2 and (tmp_path / "ws/videos/02-psst.mp4").exists()
     assert {a["payload"]["action"] for a in ap.all()} == {"youtube_upload", "instagram_reel"}
+
+
+def test_voice_render_props_use_audio_length(tmp_path, monkeypatch):
+    from survival_agent.channels import remotion
+    calls = []
+
+    def fake_synth(provider, text, out, voice):  # 2초짜리 무음 mp3
+        calls.append((provider, voice, text))
+        shorts._ffmpeg("-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", "2", str(out))
+    monkeypatch.setattr(remotion, "synthesize", fake_synth)
+    batch = json.loads(Path("content/batch_20260929/scripts.json").read_text(encoding="utf-8"))
+    brand = json.loads(Path("content/brand/brand.json").read_text(encoding="utf-8"))
+    v = batch["videos"][0]
+    props = remotion.build_props(v, brand, "google", tmp_path, None)
+    assert calls[0][2] == v["scenes"][0]["narration"] and "삼십 쪽" in calls[0][2]
+    assert props["scenes"][0]["audio"] == "audio/01-notice-3-spots/00.mp3"
+    assert abs(props["scenes"][0]["durationInFrames"] - round(2.6 * 30)) <= 2  # 음성 약 2초 + 0.6초
+    assert props["scenes"][1]["durationInFrames"] - props["scenes"][0]["durationInFrames"] == 8  # 전환 겹침 보정
+    assert remotion.DEFAULT_VOICE["google"] == "ko-KR-Chirp3-HD-Charon"
