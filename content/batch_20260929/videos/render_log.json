@@ -4,5 +4,41 @@
   "seconds": 23.9,
   "voice": false,
   "mp4": "content/batch_20260929/videos/01-notice-3-spots.mp4"
+ },
+ {
+  "slug": "02-psst",
+  "seconds": 27.7,
+  "voice": false,
+  "mp4": "content/batch_20260929/videos/02-psst.mp4"
+ },
+ {
+  "slug": "03-problem-evidence",
+  "seconds": 29.2,
+  "voice": false,
+  "mp4": "content/batch_20260929/videos/03-problem-evidence.mp4"
+ },
+ {
+  "slug": "04-budget-basis",
+  "seconds": 28.8,
+  "voice": false,
+  "mp4": "content/batch_20260929/videos/04-budget-basis.mp4"
+ },
+ {
+  "slug": "05-integrated-notice",
+  "seconds": 30.0,
+  "voice": false,
+  "mp4": "content/batch_20260929/videos/05-integrated-notice.mp4"
+ },
+ {
+  "slug": "06-submit-check",
+  "seconds": 31.4,
+  "voice": false,
+  "mp4": "content/batch_20260929/videos/06-submit-check.mp4"
+ },
+ {
+  "slug": "07-team-solo",
+  "seconds": 26.8,
+  "voice": false,
+  "mp4": "content/batch_20260929/videos/07-team-solo.mp4"
  }
 ]
