@@ -6,6 +6,7 @@ import time
 
 import anthropic
 
+from . import critic
 from .approvals import Approvals
 from .ledger import Ledger
 from .tools import TOOL_SCHEMAS, ToolBox, ToolError
@@ -22,10 +23,41 @@ SYSTEM_PROMPT = """너는 '생존형 수익 에이전트'다. 한국의 개인(�
 5. 운영자의 개인정보·계정정보를 요구하거나 외부에 노출하지 않는다
 
 # 현실 조건
-- 너는 계정 개설·본인인증·결제 수단이 없다. 사람이 대신 실행하므로, 제안은 사람이 10분 안에 그대로 따라 할 수 있게 구체적으로 쓴다
-- 운영자 시간은 하루 30분 이내라고 가정한다. 승인 요청은 사이클당 최대 3건
-- 현실적인 채널 예: 크몽·탈잉 등 재능마켓의 디지털 상품(템플릿·전자책·체크리스트), 스마트스토어 디지털 상품, 네이버 블로그 정보성 글, 표기 의무를 지킨 제휴 링크
-- 운영자 배경: 부산 거주, 문화콘텐츠·지역브랜딩·향 브랜드 운영, 정부지원사업 사업계획서 작성과 창업 컨설팅·강의 경험 보유. 이 전문성과 겹치는 상품이 팔릴 확률이 높다. 단, 운영자의 경력·실적 수치를 지어내지 않는다
+- 너는 계정 개설·본인인증·결제 수단이 없다. 계정 연결이 끝난 채널은 전자동으로 발행되고, 아니면 승인 요청이 된다
+- 운영자는 "나 없이 자동"을 원한다. 운영자 응답을 기다리며 멈추지 않는다. 운영자 도움은 선택 사항이다
+- 운영자 배경: 부산 거주, 문화콘텐츠·지역브랜딩·향 브랜드 운영, 정부지원사업 사업계획서 작성과 창업 컨설팅·강의 경험 보유. 단, 운영자의 경력·실적 수치를 지어내지 않는다
+
+# 콘텐츠 원천과 개인정보
+- 1차 원천은 운영자가 넣어둔 정부지원사업 실무 자료(list_sources / read_source). 자료에 없는 내용은 web_search 로 공고문·기관 공식 자료를 확인한 것만 쓴다
+- 원자료 사본은 자동으로 가려져 오지만, 너도 한 번 더 일반화한다: 고객사·수강생·개인 이름, 특정 가능한 업체 정보, 계약 금액은 "A사", "초기 창업자 B씨", "수천만 원대"처럼 바꾼다
+- 공고명·기관명·제도 내용 같은 공개 정보는 그대로 써도 된다
+- 고객사·수강생의 성과를 운영자 자신의 실적처럼 표현하지 않는다
+- 발행 직전 코드가 개인정보를 한 번 더 검사하고, 걸리면 발행을 중단한다. 중단되면 해당 부분을 고쳐 다시 한다
+
+# 매일 루틴 (하루 1주제 → 여러 채널)
+1. 오늘의 주제 1개: 정부지원사업을 준비하는 사람이 실제로 막히는 "방법" 하나(서류, 작성 요령, 일정, 평가 포인트, 흔한 탈락 사유 등)
+2. 숏폼: submit_brief → produce_short → publish_youtube + publish_instagram(같은 영상)
+3. 글: publish_blog 로 같은 주제를 더 자세히(쇼츠에서 못 담은 절차·예시). 영상 설명·캡션에 블로그 글 주소를 넣는다
+4. 롱폼·운영자 출연이 확실히 더 나은 주제만 propose_action(kind=filming)으로 대본과 함께 요청한다. 주 1회 이하. 응답이 없어도 숏폼 루틴은 계속한다
+
+# 수익 구조 (어디서 돈을 버는가)
+- 수익 거점(돈이 실제로 들어오는 곳): ① 디지털 상품 판매(재능마켓·스마트스토어) ② 표기 의무를 지킨 제휴 링크
+- 유입 채널(사람을 데려오는 곳): 유튜브 쇼츠, 웹사이트(무료 도구·랜딩페이지)
+- 유튜브 광고 수익은 파트너 프로그램 기준(쇼츠 90일 1,000만 회 조회 등)이 높아 초기 생존 수단으로 계산하지 않는다
+- 따라서 모든 영상·사이트는 "어떤 상품으로 연결되는가"가 분명해야 한다. 연결 상품이 아직 없으면 상품부터 만든다
+
+# 영상 기획 절차 (사람들이 실제로 보는 것을 만드는 법)
+1. get_video_stats 로 지난 영상 성과부터 본다. 잘된 영상의 주제·첫 장면과 안 된 영상의 차이를 일지에 가설로 적는다
+2. 주제는 '운영자가 전문성을 가진 분야 × 사람들이 이미 찾는 질문'의 교집합에서 고른다
+   - web_search 로 비슷한 쇼츠의 조회수, 검색 결과, 커뮤니티(카페·지식인) 질문을 확인해 수요 근거로 쓴다
+3. 한 영상 = 한 시청자의 한 질문에 대한 완결된 답. 첫 장면은 결론이나 반전으로 시작한다(인사·자기소개 금지)
+4. submit_brief 로 편집장 심사를 받는다. 탈락하면 피드백대로 고쳐 재제출하고, 3회 탈락하면 주제를 버린다
+5. 통과한 것만 produce_short → publish_youtube. 한 번에 여러 편을 찍어내지 말고, 성과를 보고 다음 주제를 정한다
+
+# 채널 규칙
+- 유튜브는 '대량 생산·반복 콘텐츠'를 수익화에서 제외한다. 영상마다 고유한 정보(구체적 수치·절차·사례)를 담고, 같은 틀을 문구만 바꿔 찍어내지 않는다. 하루 최대 2편
+- 모든 영상은 AI 제작임을 고지한다(설명란 고지·AI 표시는 코드가 자동 처리)
+- 사이트는 workspace/site/index.html 을 기준으로 만든다. 외부 스크립트·추적 코드는 넣지 않는다
 
 # 일하는 방식
 1. 먼저 get_status 와 생존일지로 상황을 파악한다(사람이 남긴 실행 결과 메모 포함)
@@ -77,6 +109,16 @@ class SurvivalAgent:
         s = self.ledger.state()
         self.log(f"▶ 사이클 {s['cycles'] + 1} 시작 | 단계 {tier.label} | 모델 {tier.model} | 잔고 {s['balance_krw']:,.0f}원")
 
+        cycle_no = s["cycles"] + 1
+
+        def critic_fn(brief):
+            result, usage, model_used = critic.review(self.client, tier.model, tier.effort, brief)
+            cost = self.ledger.cost_of(model_used or tier.model, usage)
+            self.ledger.charge(cost, f"사이클 {cycle_no} 편집장 심사 ({brief['slug']})")
+            self.log(f"    · 편집장 심사 -{cost:,.1f}원: {'통과' if result['passed'] else '탈락'} {result['scores']}")
+            return result
+        self.tools.critic = critic_fn
+
         kickoff = (f"사이클 {s['cycles'] + 1}을 시작한다. 현재 생존 단계: {tier.label}. "
                    f"이번 사이클 지출 상한 {tier.cycle_cap_krw:,}원, 최대 {tier.max_turns}회 호출.\n\n"
                    f"[지난 생존일지 발췌]\n{self.tools.journal_tail()}")
@@ -124,10 +166,11 @@ class SurvivalAgent:
                     out = self.tools.run(block.name, args)
                     results.append({"type": "tool_result", "tool_use_id": block.id, "content": out})
                     self.log(f"    · {block.name} 실행")
-                except (ToolError, TypeError, ValueError) as e:
+                except Exception as e:  # 도구 실패는 에이전트에게 돌려주고 사이클은 계속
+                    msg = str(e) if isinstance(e, (ToolError, TypeError, ValueError)) else f"{type(e).__name__}: {e}"
                     results.append({"type": "tool_result", "tool_use_id": block.id,
-                                    "content": f"오류: {e}", "is_error": True})
-                    self.log(f"    · {block.name} 오류: {e}")
+                                    "content": f"오류: {msg}", "is_error": True})
+                    self.log(f"    · {block.name} 오류: {msg}")
             messages.append({"role": "user", "content": results})
 
             if self.ledger.is_dead():

@@ -9,6 +9,8 @@
   python -m survival_agent reject 3 --note "이유"  거절(이유는 에이전트가 읽음)
   python -m survival_agent done 3 --note "결과"    실행 완료 + 결과 메모
   python -m survival_agent revenue 9900 "크몽 판매 1건"   실제 입금액 기록
+  python -m survival_agent execute 5               실행 준비된 제안(유튜브 업로드·사이트 배포)을 한 줄로 실행
+  python -m survival_agent youtube-auth            유튜브 계정 연결(최초 1회)
 """
 from __future__ import annotations
 
@@ -17,7 +19,8 @@ import sys
 
 from .agent import SurvivalAgent
 from .approvals import KIND_LABEL, Approvals
-from .config import Settings
+from .channels import Channels, youtube
+from .config import DATA_DIR, WORKSPACE_DIR, Settings
 from .ledger import Ledger
 from .tools import ToolBox
 
@@ -32,9 +35,17 @@ def main(argv=None) -> int:
     for name in ("approve", "reject", "done"):
         p = sub.add_parser(name); p.add_argument("id", type=int); p.add_argument("--note", default="")
     p = sub.add_parser("revenue"); p.add_argument("krw", type=int); p.add_argument("memo")
+    p = sub.add_parser("execute"); p.add_argument("id", type=int)
+    sub.add_parser("youtube-auth")
     a = ap.parse_args(argv)
 
-    ledger, approvals = Ledger(), Approvals()
+    settings = Settings.load()
+    ledger, approvals = Ledger(settings=settings), Approvals()
+    channels = Channels(settings, ledger, approvals, WORKSPACE_DIR, DATA_DIR)
+    if a.cmd == "youtube-auth":
+        youtube.authorize(DATA_DIR)
+        print("유튜브 인증 완료 → data/youtube_token.json")
+        return 0
     if a.cmd == "init":
         Settings.load().save()
         ledger.init(a.seed)
@@ -65,11 +76,23 @@ def main(argv=None) -> int:
             print(e.args[0])
             return 1
         print(f"#{it['id']} → {status}")
+    elif a.cmd == "execute":
+        try:
+            it = approvals.get(a.id)
+        except KeyError as e:
+            print(e.args[0])
+            return 1
+        if not it.get("payload"):
+            print("실행 준비된 제안이 아님 → 직접 실행 후 `done` 으로 결과 기록")
+            return 1
+        result = channels.execute(it["payload"])
+        approvals.set_status(a.id, "done", result)
+        print(result)
     elif a.cmd == "revenue":
         s = ledger.add_revenue(a.krw, a.memo)
         print(f"수익 +{a.krw:,}원 기록 → 잔고 {s['balance_krw']:,.0f}원")
     elif a.cmd == "run":
-        agent = SurvivalAgent(ledger, approvals, ToolBox(ledger, approvals))
+        agent = SurvivalAgent(ledger, approvals, ToolBox(ledger, approvals, channels=channels))
         if a.once:
             agent.run_cycle()
         else:

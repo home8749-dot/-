@@ -107,7 +107,7 @@ def test_critical_tier_uses_haiku_without_effort_or_fallbacks(tmp_path):
 
 def test_cycle_cap_stops_spending(tmp_path):
     big = lambda i: _msg([{"type": "tool_use", "id": f"t{i}", "name": "get_status", "input": {}}],
-                         "tool_use", inp=200_000, out=20_000)  # 호출당 약 1,680원
+                         "tool_use", inp=400_000, out=40_000)  # 호출당 약 3,360원
     agent, ledger, _, _, server = _setup(tmp_path, [big(i) for i in range(5)])
     assert agent.run_cycle() == "cycle_cap"
     assert len(server.requests) == 1
@@ -129,3 +129,18 @@ def test_workspace_escape_blocked(tmp_path):
 def test_refusal_ends_cycle(tmp_path):
     agent, *_ = _setup(tmp_path, [_msg([], "refusal")])
     assert agent.run_cycle() == "refusal"
+
+
+def test_critic_review_request_and_verdict(tmp_path):
+    from survival_agent import critic
+    scores = {k: 4 for k in critic.CRITERIA}
+    resp = _msg([{"type": "text", "text": json.dumps({"scores": scores, "feedback": "훅 보강"})}], "end_turn")
+    agent, ledger, _, box, server = _setup(tmp_path, [resp, {**resp, "content": [{"type": "text", "text": json.dumps(
+        {"scores": {**scores, "hook": 2}, "feedback": "첫 장면이 인사말"})}]}])
+    result, usage, model = critic.review(agent.client, "claude-opus-5-5", "medium", {"slug": "a"})
+    body = server.requests[0]["body"]
+    assert body["output_config"]["format"]["type"] == "json_schema"
+    assert body["output_config"]["effort"] == "medium"
+    assert result["passed"] is True
+    result2, *_ = critic.review(agent.client, "claude-opus-5-5", "medium", {"slug": "a"})
+    assert result2["passed"] is False  # 한 항목이라도 3점 미만이면 탈락

@@ -1,2 +1,6 @@
 anthropic>=1.9
+pillow>=10
+imageio-ffmpeg>=0.5
+google-api-python-client>=2.100
+google-auth-oauthlib>=1.2
 pytest>=8

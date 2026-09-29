@@ -33,19 +33,35 @@ class Tier:
     max_turns: int       # 1 사이클 최대 API 호출 수
 
 
+# 하루 1사이클 = 하루 1주제(쇼츠 유튜브·인스타 + 블로그). 위기 단계는 이틀에 1회
 TIERS = [
-    Tier("normal", "정상", 0.5, "claude-opus-5-5", "medium", 6, 1500, 12),
-    Tier("low", "절약", 0.2, "claude-sonnet-5-5", "low", 12, 700, 8),
-    Tier("critical", "위기", 0.0, "claude-haiku-4-5", None, 24, 300, 5),
+    Tier("normal", "정상", 0.5, "claude-opus-5-5", "medium", 24, 3000, 30),
+    Tier("low", "절약", 0.2, "claude-sonnet-5-5", "low", 24, 1500, 20),
+    Tier("critical", "위기", 0.0, "claude-haiku-4-5", None, 48, 500, 10),
 ]
 
 
 @dataclass
 class Settings:
-    seed_krw: int = 50_000          # 개인 시드머니 기본값 (B안: 상한 약 5만 원)
+    seed_krw: int = 100_000         # 개인 시드머니 기본값 (하루 1주제 기준 약 1개월 실험분)
     krw_per_usd: float = 1_400.0    # 환율 가정값 — 확인 필요
     prices: dict = field(default_factory=lambda: dict(PRICES_USD_PER_MTOK))
     web_search_usd: float = WEB_SEARCH_USD_PER_CALL
+    # ---- 채널 전자동 스위치: true 면 승인 없이 바로 실행, false 면 승인 대기열로 ----
+    autopilot: dict = field(default_factory=lambda: {"youtube": False, "instagram": False, "site": False})
+    daily_limits: dict = field(default_factory=lambda: {"youtube": 1, "instagram": 1, "site": 5})
+    site_base_url: str = ""              # 예: https://아이디.github.io  (릴스 영상 공개 주소용)
+    ig_user_id: str = ""                 # 인스타 비즈니스 계정 ID. 토큰은 환경변수 IG_ACCESS_TOKEN
+    ig_graph_base: str = "https://graph.facebook.com/v22.0"   # 버전은 확인 필요
+    naver_blog_drafts: bool = True       # 네이버 블로그 복사용 초안도 생성
+    youtube_privacy: str = "public"      # 미감사 API 프로젝트는 이 값과 무관하게 비공개로 올라감
+    youtube_category_id: str = "27"      # 27 = 교육
+    font_path: str = ""                  # 비우면 OS 기본 한글 폰트 탐색
+    tts_api_key_env: str = "GOOGLE_TTS_API_KEY"
+    tts_voice: str = "ko-KR-Neural2-C"
+    tts_usd_per_mchar: float = 16.0      # Google Cloud TTS Neural2 100만 자당 — 확인 필요
+    site_repo_url: str = ""              # 예: git@github.com:아이디/아이디.github.io.git
+    site_branch: str = "main"
 
     @classmethod
     def load(cls) -> "Settings":
