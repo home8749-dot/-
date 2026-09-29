@@ -11,12 +11,14 @@
   python -m survival_agent revenue 9900 "크몽 판매 1건"   실제 입금액 기록
   python -m survival_agent execute 5               실행 준비된 제안(유튜브 업로드·사이트 배포)을 한 줄로 실행
   python -m survival_agent youtube-auth            유튜브 계정 연결(최초 1회)
+  python -m survival_agent dashboard               현황판 → workspace/dashboard.html (사이클마다 자동 갱신)
 """
 from __future__ import annotations
 
 import argparse
 import sys
 
+from . import dashboard
 from .agent import SurvivalAgent
 from .approvals import KIND_LABEL, Approvals
 from .channels import Channels, youtube
@@ -37,6 +39,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("revenue"); p.add_argument("krw", type=int); p.add_argument("memo")
     p = sub.add_parser("execute"); p.add_argument("id", type=int)
     sub.add_parser("youtube-auth")
+    sub.add_parser("dashboard")
     a = ap.parse_args(argv)
 
     settings = Settings.load()
@@ -45,6 +48,9 @@ def main(argv=None) -> int:
     if a.cmd == "youtube-auth":
         youtube.authorize(DATA_DIR)
         print("유튜브 인증 완료 → data/youtube_token.json")
+        return 0
+    if a.cmd == "dashboard":  # 가동 전에도 준비 현황을 볼 수 있게 init 확인보다 먼저
+        print(f"현황판: {dashboard.write(DATA_DIR, WORKSPACE_DIR, settings)}")
         return 0
     if a.cmd == "init":
         Settings.load().save()
@@ -93,10 +99,12 @@ def main(argv=None) -> int:
         print(f"수익 +{a.krw:,}원 기록 → 잔고 {s['balance_krw']:,.0f}원")
     elif a.cmd == "run":
         agent = SurvivalAgent(ledger, approvals, ToolBox(ledger, approvals, channels=channels))
+        refresh = lambda: dashboard.write(DATA_DIR, WORKSPACE_DIR, settings)
         if a.once:
             agent.run_cycle()
+            refresh()
         else:
-            agent.run_forever()
+            agent.run_forever(after_cycle=refresh)
     return 0
 
 

@@ -65,6 +65,7 @@ python -m survival_agent revenue 29000 "크몽 가이드 1건"   # 실제 입금
 
 - 매일 자동 실행(맥이 켜져 있을 때): `crontab -e` 에 아래 한 줄
   `45 8 * * * cd ~/survival && ANTHROPIC_API_KEY=... .venv/bin/python -m survival_agent run --once >> data/run.log 2>&1`
+- 현황판: `python -m survival_agent dashboard` → `workspace/dashboard.html` (사이클마다 자동 갱신 · 준비 현황·할 일·산출물·비용 흐름)
 - 산출물: `workspace/videos`(영상) · `workspace/site/blog`(블로그) · `workspace/naver_drafts`(네이버 복사용) · `workspace/briefs`(기획안·심사 결과) · `workspace/생존일지.md`(에이전트 기억)
 
 ## 5. 생존 단계·비용
@@ -88,5 +89,5 @@ python -m survival_agent revenue 29000 "크몽 가이드 1건"   # 실제 입금
 ## 7. 테스트
 
 ```bash
-python -m pytest -q    # API 키 없이 23개 시나리오 (실제 영상 렌더링·git 배포 포함)
+python -m pytest -q    # API 키 없이 25개 시나리오 (실제 영상 렌더링·git 배포 포함)
 ```

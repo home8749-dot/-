@@ -127,8 +127,13 @@ class Channels:
         if not youtube.is_ready(self.data):
             raise RuntimeError("유튜브 인증 전")
         stats = youtube.stats(self._yt_factory(), list(videos))
-        return [{"채널": "유튜브", "제목": videos[v]["title"], "올린시각": videos[v]["at"],
+        rows = [{"채널": "유튜브", "제목": videos[v]["title"], "올린시각": videos[v]["at"], "주소": videos[v]["result"],
                  **stats.get(v, {"상태": "조회 불가(비공개·삭제)"})} for v in videos]
+        # 현황판용 캐시 (현황판은 API 를 직접 부르지 않음)
+        (self.data / "video_stats.json").write_text(
+            json.dumps({"at": datetime.now().isoformat(timespec="seconds"), "rows": rows}, ensure_ascii=False, indent=1),
+            encoding="utf-8")
+        return rows
 
     # ---- 인스타그램 릴스 ----
     def publish_instagram(self, video_path: str, caption: str) -> str:

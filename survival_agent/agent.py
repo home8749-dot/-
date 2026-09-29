@@ -184,9 +184,11 @@ class SurvivalAgent:
         self.log(f"■ 사이클 종료 ({reason}) | 이번 지출 {spent:,.0f}원")
         return reason
 
-    def run_forever(self, sleep=time.sleep) -> None:
+    def run_forever(self, sleep=time.sleep, after_cycle=None) -> None:
         while not self.ledger.is_dead():
             self.run_cycle()
+            if after_cycle:
+                after_cycle()
             tier = self.ledger.tier()
             if tier is None:
                 break

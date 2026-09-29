@@ -279,3 +279,29 @@ def test_instagram_graph_calls():
                                  call=fake_call, sleep=lambda s: None)
     assert mid == "M1"
     assert calls[0][2]["media_type"] == "REELS" and calls[-1][2]["creation_id"] == "C1"
+
+
+def test_dashboard_empty_and_demo(tmp_path):
+    from datetime import date
+    from survival_agent import dashboard
+    empty = dashboard.collect(tmp_path / "d", tmp_path / "w", Settings(), env={})
+    assert not empty["initialized"]
+    assert [t[1] for t in empty["todos"]][:2] == ["Claude API 키 발급·등록", "시드 입금으로 가동 시작"]
+    demo = dashboard.build_demo(tmp_path / "demo", today=date(2026, 9, 29))
+    assert demo["state"]["tier"] == "normal" and demo["briefs"] == {
+        "total": 6, "passed": 5, "failed": demo["briefs"]["failed"]}
+    assert demo["videos"][0]["views"] == 1840 and demo["videos"][0]["channels"] == ["instagram", "youtube"]
+    assert all(ok for _, _, ok, _, _, req in demo["setup"] if req)
+    page = dashboard.render_fragment(empty, demo)
+    assert page.startswith("<title>생존 에이전트 현황판</title>") and "<html" not in page
+    assert "가동 후 예시" in page and "예시 화면입니다" in page
+    doc = dashboard.render_document(empty)
+    assert doc.startswith("<!doctype html>")
+
+
+def test_dashboard_cli_before_init(tmp_path, monkeypatch):
+    import survival_agent.__main__ as cli
+    monkeypatch.setattr(cli, "DATA_DIR", tmp_path / "data")
+    monkeypatch.setattr(cli, "WORKSPACE_DIR", tmp_path / "ws")
+    assert cli.main(["dashboard"]) == 0
+    assert "준비 현황" in (tmp_path / "ws/dashboard.html").read_text(encoding="utf-8")
