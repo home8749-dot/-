@@ -305,3 +305,27 @@ def test_dashboard_cli_before_init(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "WORKSPACE_DIR", tmp_path / "ws")
     assert cli.main(["dashboard"]) == 0
     assert "준비 현황" in (tmp_path / "ws/dashboard.html").read_text(encoding="utf-8")
+
+
+def test_remotion_props_and_queue(tmp_path):
+    from survival_agent.channels import remotion
+    batch = json.loads(Path("content/batch_20260929/scripts.json").read_text(encoding="utf-8"))
+    brand = json.loads(Path("content/brand/brand.json").read_text(encoding="utf-8"))
+    assert len(batch["videos"]) == 7
+    for v in batch["videos"]:
+        remotion.guard(v, [])  # 대본에 개인정보 패턴 없음
+        props = remotion.build_props(v, brand, None, tmp_path)
+        assert props["scenes"][0]["kind"] == "hook" and props["scenes"][-1]["kind"] == "cta"
+        secs = sum(s["durationInFrames"] for s in props["scenes"]) / 30
+        assert 15 <= secs <= 60
+    with pytest.raises(ValueError, match="개인정보"):
+        remotion.guard({**batch["videos"][0], "title": "문의 010-1234-5678"}, [])
+    # 검수 통과분만 대기열로
+    scripts = tmp_path / "b" / "scripts.json"
+    (tmp_path / "b" / "videos").mkdir(parents=True)
+    scripts.write_text(json.dumps({**batch, "brand": "x"}, ensure_ascii=False), encoding="utf-8")
+    (tmp_path / "b/videos/02-psst.mp4").write_bytes(b"x")
+    ap = Approvals(tmp_path / "data")
+    ids = remotion.queue_for_review(scripts, ap, tmp_path / "ws", only=["02-psst"])
+    assert len(ids) == 2 and (tmp_path / "ws/videos/02-psst.mp4").exists()
+    assert {a["payload"]["action"] for a in ap.all()} == {"youtube_upload", "instagram_reel"}

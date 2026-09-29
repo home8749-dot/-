@@ -1,0 +1,50 @@
+{
+ "brand": {
+  "name": "단디서류",
+  "sealText": "단디",
+  "footer": "AI 제작 · 사람 검수",
+  "colors": {
+   "paper": "#FAFAF6",
+   "ink": "#1B1E22",
+   "grid": "#2F7D5B",
+   "seal": "#D2362C",
+   "highlight": "#FFE14D",
+   "muted": "#5E646C"
+  }
+ },
+ "scenes": [
+  {
+   "kind": "hook",
+   "text": "공고문 30쪽, ==처음부터 읽지 마세요==",
+   "sub": "먼저 볼 곳은 딱 3곳입니다",
+   "durationInFrames": 143
+  },
+  {
+   "kind": "step",
+   "text": "나이·업력·지역, ==기준일==부터 확인",
+   "sub": "기준일 하루 차이로 자격이 갈립니다",
+   "label": "1. 신청자격",
+   "durationInFrames": 148
+  },
+  {
+   "kind": "step",
+   "text": "==제외 대상== 목록에 내가 있는지",
+   "sub": "중복 수혜·체납 같은 조건은 공고마다 다르게 적혀 있어요",
+   "label": "2. 지원 제외 대상",
+   "durationInFrames": 174
+  },
+  {
+   "kind": "step",
+   "text": "평가항목과 ==배점==을 먼저 보고 쓰기",
+   "sub": "배점이 높은 항목에 분량과 근거를 몰아주세요",
+   "label": "3. 평가표",
+   "durationInFrames": 161
+  },
+  {
+   "kind": "cta",
+   "text": "공고 뜨면 ==이 3곳==부터",
+   "sub": "저장해두고 다시 꺼내 보세요",
+   "durationInFrames": 123
+  }
+ ]
+}

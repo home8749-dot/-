@@ -1,0 +1,21 @@
+{
+  "name": "단디서류",
+  "tagline": "지원사업 서류, 단디 챙기자",
+  "tagline_en": "Get your grant papers right.",
+  "colors": {
+    "paper": "#FAFAF6",
+    "ink": "#1B1E22",
+    "grid": "#2F7D5B",
+    "seal": "#D2362C",
+    "highlight": "#FFE14D",
+    "muted": "#5E646C"
+  },
+  "fonts": {
+    "display": "assets/fonts/BlackHanSans-Regular.ttf",
+    "bold": "assets/fonts/GothicA1-ExtraBold.ttf",
+    "body": "assets/fonts/GothicA1-Bold.ttf"
+  },
+  "seal_text": "단디",
+  "footer": "AI 제작 · 사람 검수",
+  "cta_default": "저장해두고, 공고 뜨면 다시 보기"
+}

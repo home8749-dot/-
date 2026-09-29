@@ -11,17 +11,20 @@
   python -m survival_agent revenue 9900 "크몽 판매 1건"   실제 입금액 기록
   python -m survival_agent execute 5               실행 준비된 제안(유튜브 업로드·사이트 배포)을 한 줄로 실행
   python -m survival_agent youtube-auth            유튜브 계정 연결(최초 1회)
+  python -m survival_agent render-batch content/batch_20260929/scripts.json [--tts edge]   브랜드 쇼츠 묶음 렌더링
+  python -m survival_agent queue-batch content/batch_20260929/scripts.json                 검수 통과분을 발행 대기열로
   python -m survival_agent dashboard               현황판 → workspace/dashboard.html (사이클마다 자동 갱신)
 """
 from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from . import dashboard
 from .agent import SurvivalAgent
 from .approvals import KIND_LABEL, Approvals
-from .channels import Channels, youtube
+from .channels import Channels, remotion, youtube
 from .config import DATA_DIR, WORKSPACE_DIR, Settings
 from .ledger import Ledger
 from .tools import ToolBox
@@ -40,6 +43,9 @@ def main(argv=None) -> int:
     p = sub.add_parser("execute"); p.add_argument("id", type=int)
     sub.add_parser("youtube-auth")
     sub.add_parser("dashboard")
+    p = sub.add_parser("render-batch"); p.add_argument("scripts"); p.add_argument("--tts", choices=["edge"], default=None)
+    p.add_argument("--only", nargs="*")
+    p = sub.add_parser("queue-batch"); p.add_argument("scripts"); p.add_argument("--only", nargs="*")
     a = ap.parse_args(argv)
 
     settings = Settings.load()
@@ -48,6 +54,9 @@ def main(argv=None) -> int:
     if a.cmd == "youtube-auth":
         youtube.authorize(DATA_DIR)
         print("유튜브 인증 완료 → data/youtube_token.json")
+        return 0
+    if a.cmd == "render-batch":
+        remotion.render_batch(Path(a.scripts), tts=a.tts, only=a.only)
         return 0
     if a.cmd == "dashboard":  # 가동 전에도 준비 현황을 볼 수 있게 init 확인보다 먼저
         print(f"현황판: {dashboard.write(DATA_DIR, WORKSPACE_DIR, settings)}")
@@ -94,6 +103,9 @@ def main(argv=None) -> int:
         result = channels.execute(it["payload"])
         approvals.set_status(a.id, "done", result)
         print(result)
+    elif a.cmd == "queue-batch":
+        ids = remotion.queue_for_review(Path(a.scripts), approvals, WORKSPACE_DIR, only=a.only)
+        print(f"발행 대기열 등록: {len(ids)}건 (#{', #'.join(map(str, ids))}) → execute <번호> 로 발행")
     elif a.cmd == "revenue":
         s = ledger.add_revenue(a.krw, a.memo)
         print(f"수익 +{a.krw:,}원 기록 → 잔고 {s['balance_krw']:,.0f}원")

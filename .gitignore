@@ -4,3 +4,7 @@ workspace/
 __pycache__/
 .pytest_cache/
 .env
+video/node_modules/
+video/out/
+video/props/
+video/public/audio/

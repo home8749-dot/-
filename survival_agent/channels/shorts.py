@@ -106,9 +106,12 @@ def audio_seconds(path: Path) -> float:
 
 
 def render_short(scenes: list[dict], out_path: Path, font_path: str,
-                 tts=None, seconds_per_scene: float = 4.0, footer: str = "") -> dict:
+                 tts=None, seconds_per_scene: float = 4.0, footer: str = "",
+                 card=None, duration=None) -> dict:
     """scenes: [{"caption": 화면 문구, "narration": 읽을 문장}]. 첫 장면이 곧 첫 3초 훅.
     tts(text, path) 가 None 이면 무음+자막.
+    card(scene, i, total, png_path) 를 주면 그 디자인으로 장면을 그린다(브랜드 템플릿).
+    duration(scene) 을 주면 무음일 때 장면 길이를 그 값으로 한다.
 
     반환: {"path", "seconds", "tts_chars"}
     """
@@ -118,7 +121,10 @@ def render_short(scenes: list[dict], out_path: Path, font_path: str,
     segments, total, chars = [], 0.0, 0
     for i, sc in enumerate(cards):
         img = work / f"{i:02d}.png"
-        render_card(sc["caption"], img, font_path, i, footer)
+        if card:
+            card(sc, i, len(cards), img)
+        else:
+            render_card(sc["caption"], img, font_path, i, footer)
         seg = work / f"{i:02d}.mp4"
         if tts and sc.get("narration"):
             mp3 = work / f"{i:02d}.mp3"
@@ -127,7 +133,7 @@ def render_short(scenes: list[dict], out_path: Path, font_path: str,
             dur = audio_seconds(mp3) + 0.3
             audio_in = ["-i", str(mp3)]
         else:
-            dur = seconds_per_scene
+            dur = duration(sc) if duration else seconds_per_scene
             audio_in = ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"]
         if total + dur > MAX_SECONDS:
             break

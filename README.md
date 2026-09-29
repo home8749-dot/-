@@ -86,8 +86,32 @@ python -m survival_agent revenue 29000 "크몽 가이드 1건"   # 실제 입금
 4. AI 제작 고지(설명란·캡션·블로그·유튜브 AI 표시 자동)
 5. 개인정보 노출 금지
 
+
+## 브랜드 쇼츠 제작 (Remotion)
+
+채널 브랜드: `content/brand/단디서류_브랜딩패키지_v1.0.md` · 설정 `content/brand/brand.json` · 채널 아트 `content/brand/channel_art/`
+
+```bash
+cd video && npm i && cd ..                        # 최초 1회 (Node 22 이상)
+python -m survival_agent render-batch content/batch_20260929/scripts.json             # 자막형(무음)
+pip install edge-tts
+python -m survival_agent render-batch content/batch_20260929/scripts.json --tts edge  # 한국어 음성 입힘
+python -m survival_agent queue-batch content/batch_20260929/scripts.json --only 01-notice-3-spots 02-psst
+python -m survival_agent execute <번호>                                               # 유튜브·인스타 발행
+```
+
+- 템플릿: `video/src` (원고지 격자 · 형광펜 강조 · 도장). 미리보기·수정은 `cd video && npx remotion studio`
+- 대본 문구의 `==강조==` 는 형광펜으로 그어짐. 장면 종류: hook(첫 3초) · step(단계) · cta(마무리)
+- 채널명을 바꾸면 `brand.json` 만 고치고 다시 렌더링
+- ※ edge-tts 는 마이크로소프트 엣지 읽어주기 음성을 쓰는 비공식 도구. 수익 채널에 쓰기 전 약관 확인 필요(대안: Google Cloud TTS)
+- ※ Remotion 은 개인·3인 이하 팀 무료, 그 이상 회사는 유료 라이선스(remotion.pro/license)
+
+## 설치된 에이전트 스킬 (GitHub)
+
+- `.claude/skills/remotion-*` — Remotion 공식 스킬 12종(`npx skills add remotion-dev/skills`). 이 저장소를 Claude Code 로 열면 영상 템플릿 수정·렌더링 규칙을 자동으로 참고
+
 ## 7. 테스트
 
 ```bash
-python -m pytest -q    # API 키 없이 25개 시나리오 (실제 영상 렌더링·git 배포 포함)
+python -m pytest -q    # API 키 없이 26개 시나리오 (실제 영상 렌더링·git 배포 포함)
 ```
