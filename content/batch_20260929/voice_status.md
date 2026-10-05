@@ -1,0 +1,1 @@
+2026-10-05 새 세션 확인: GEMINI_API_KEY·GOOGLE_TTS_API_KEY 환경변수 없음
