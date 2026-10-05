@@ -5,7 +5,7 @@ import type { Brand, Scene } from "../schema";
 import { SceneFrame } from "./SceneFrame";
 
 /** 마지막 장면: 저장 유도 + 도장 쾅 */
-export const CtaScene: React.FC<{ brand: Brand; scene: Scene; index: number; total: number }> = (p) => {
+export const CtaScene: React.FC<{ brand: Brand; scene: Scene; index: number; total: number; mascot?: boolean }> = (p) => {
   const frame = useCurrentFrame();
   const c = p.brand.colors;
   return (
@@ -18,7 +18,7 @@ export const CtaScene: React.FC<{ brand: Brand; scene: Scene; index: number; tot
           {p.scene.sub}
         </div>
       ) : null}
-      <div
+      {p.mascot ? null : <div
         style={{
           marginTop: 70,
           alignSelf: "flex-end",
@@ -46,7 +46,7 @@ export const CtaScene: React.FC<{ brand: Brand; scene: Scene; index: number; tot
       >
         <div style={{ fontSize: 96 }}>{p.brand.sealText}</div>
         <div style={{ fontSize: 44, marginTop: 8 }}>확인</div>
-      </div>
+      </div>}
     </SceneFrame>
   );
 };

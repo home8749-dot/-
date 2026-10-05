@@ -15,7 +15,7 @@ const SCENES = { hook: HookScene, step: StepScene, cta: CtaScene };
  * 단디서류 쇼츠 템플릿. 장면들은 하나의 원본 템플릿으로 통제하려는 의도라
  * props 로 받아 반복 생성한다(에이전트가 매일 props JSON 만 바꿔 렌더링).
  */
-export const ShortVideo: React.FC<ShortProps> = ({ brand, scenes, audio, audioDelayFrames }) => (
+export const ShortVideo: React.FC<ShortProps> = ({ brand, scenes, audio, audioDelayFrames, mascot }) => (
   <>
   {audio ? (
     <Sequence name="내레이션" from={audioDelayFrames ?? 0}>
@@ -31,7 +31,7 @@ export const ShortVideo: React.FC<ShortProps> = ({ brand, scenes, audio, audioDe
             <TransitionSeries.Transition presentation={fade()} timing={linearTiming({ durationInFrames: TRANSITION_FRAMES })} />
           ) : null}
           <TransitionSeries.Sequence name={`${i + 1}. ${scene.kind}`} durationInFrames={scene.durationInFrames}>
-            <Comp brand={brand} scene={scene} index={i} total={scenes.length} />
+            <Comp brand={brand} scene={scene} index={i} total={scenes.length} mascot={mascot} />
           </TransitionSeries.Sequence>
         </React.Fragment>
       );

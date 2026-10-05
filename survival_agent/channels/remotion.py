@@ -199,7 +199,8 @@ def build_props_whole(video: dict, brand: dict, provider: str, audio_root: Path,
             frames += round(lead * FPS)
         sc["durationInFrames"] = max(frames, 2 * FPS)
         scenes.append(sc)
-    return {"brand": brand_props(brand), "scenes": scenes, "audio": rel, "audioDelayFrames": round(lead * FPS)}
+    return {"brand": brand_props(brand), "scenes": scenes, "audio": rel, "audioDelayFrames": round(lead * FPS),
+            "mascot": bool(brand.get("mascot"))}
 
 
 def build_props(video: dict, brand: dict, tts: str | None, audio_root: Path, voice: str | None = None) -> dict:
@@ -216,7 +217,7 @@ def build_props(video: dict, brand: dict, tts: str | None, audio_root: Path, voi
         else:
             sc["durationInFrames"] = frames_for_text(s)
         scenes.append(sc)
-    return {"brand": brand_props(brand), "scenes": scenes}
+    return {"brand": brand_props(brand), "scenes": scenes, "mascot": bool(brand.get("mascot"))}
 
 
 def _npx(*args: str) -> None:

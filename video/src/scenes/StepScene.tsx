@@ -5,7 +5,7 @@ import type { Brand, Scene } from "../schema";
 import { SceneFrame } from "./SceneFrame";
 
 /** 한 장면 한 가지: 체크 라벨 + 핵심 문장 + 보조 설명 */
-export const StepScene: React.FC<{ brand: Brand; scene: Scene; index: number; total: number }> = (p) => {
+export const StepScene: React.FC<{ brand: Brand; scene: Scene; index: number; total: number; mascot?: boolean }> = (p) => {
   const frame = useCurrentFrame();
   const c = p.brand.colors;
   return (

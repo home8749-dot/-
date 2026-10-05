@@ -5,7 +5,7 @@ import type { Brand, Scene } from "../schema";
 import { SceneFrame } from "./SceneFrame";
 
 /** 첫 3초 훅: 크고 단단한 한 문장 */
-export const HookScene: React.FC<{ brand: Brand; scene: Scene; index: number; total: number }> = (p) => {
+export const HookScene: React.FC<{ brand: Brand; scene: Scene; index: number; total: number; mascot?: boolean }> = (p) => {
   const frame = useCurrentFrame();
   return (
     <SceneFrame {...p}>
