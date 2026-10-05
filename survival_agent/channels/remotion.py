@@ -4,7 +4,8 @@
 
 - 대본 형식: content/batch_20260929/scripts.json 참고. 문구의 ==강조== 는 형광펜으로 그어짐
 - --tts gemini [권장]: Gemini TTS(구글 AI 스튜디오와 같은 음성). 환경변수 GEMINI_API_KEY(AI 스튜디오 키) 필요
-  기본 목소리 Charon(차분한 남성), 여성 대안 Kore. 말투는 GEMINI_STYLE 지시문으로 조절
+  기본 목소리 Charon(차분한 남성), 여성 대안 Kore. 영상 1편 = 요청 1회(무료 한도 절약), 장면 경계는 문장 사이 쉼으로 맞춤
+  ※ 말투 지시문을 앞에 붙이면 지시문까지 소리 내어 읽으므로 대본만 보냄(GEMINI_STYLE 를 지정할 때만 붙임)
 - --tts google: Google Cloud TTS Chirp 3 HD(가장 자연스러운 등급). 환경변수 GOOGLE_TTS_API_KEY 필요
   기본 목소리 ko-KR-Chirp3-HD-Charon(차분한 남성). 여성 대안 ko-KR-Chirp3-HD-Kore → --voice 로 지정
 - --tts edge: 무료 edge-tts. 기본 ko-KR-InJoonNeural(남성), 대안 ko-KR-SunHiNeural(여성)
@@ -46,9 +47,8 @@ def brand_props(brand: dict) -> dict:
 
 
 DEFAULT_VOICE = {"gemini": "Charon", "google": "ko-KR-Chirp3-HD-Charon", "edge": "ko-KR-InJoonNeural"}
-GEMINI_MODELS = ["gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]
-GEMINI_STYLE = ("정부지원사업을 오래 다뤄 본 차분하고 신뢰감 있는 컨설턴트가, 처음 준비하는 창업자에게 "
-                "옆에서 설명하듯 자연스럽게 말해 주세요. 과장 없이 또박또박, 문장 끝은 부드럽게 내려 주세요. 읽을 문장:")
+GEMINI_MODELS = ["gemini-3.8-flash-tts", "gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]
+GEMINI_STYLE = ""
 
 
 def edge_tts(text: str, out: Path, voice: str, rate: str = "+5%") -> None:
@@ -82,7 +82,7 @@ def _pcm_to_wav(pcm: bytes, rate: int = 24000) -> bytes:
             struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16) + b"data" + struct.pack("<I", len(pcm)) + pcm)
 
 
-def gemini_tts(text: str, out: Path, voice: str, post=None) -> None:
+def gemini_tts(text: str, out: Path, voice: str, post=None, wait: int = 65) -> None:
     """Gemini API TTS. 응답은 base64 오디오(16bit PCM 24kHz 모노 또는 WAV) → mp3 로 저장."""
     import base64
     import urllib.error
@@ -92,7 +92,7 @@ def gemini_tts(text: str, out: Path, voice: str, post=None) -> None:
     if not key:
         raise RuntimeError("GEMINI_API_KEY 환경변수가 없음 (aistudio.google.com 에서 발급)")
     style = os.environ.get("GEMINI_STYLE", GEMINI_STYLE)
-    body = {"contents": [{"parts": [{"text": f"{style}\n{text}"}]}],
+    body = {"contents": [{"parts": [{"text": f"{style}\n{text}" if style else text}]}],
             "generationConfig": {"responseModalities": ["AUDIO"],
                                  "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
 
@@ -110,9 +110,17 @@ def gemini_tts(text: str, out: Path, voice: str, post=None) -> None:
         try:
             resp = post(model)
             break
-        except urllib.error.HTTPError as e:  # 모델 이름이 바뀌었으면 다음 후보로
+        except urllib.error.HTTPError as e:  # 모델 이름 변경·권한·한도 → 다음 후보 모델로
             last = e
-            if e.code not in (400, 404):
+            if e.code == 429 and wait:
+                import time
+                time.sleep(wait)
+                try:
+                    resp = post(model)
+                    break
+                except urllib.error.HTTPError as e2:
+                    last = e2
+            if last.code not in (400, 403, 404, 429):
                 raise
     else:
         raise RuntimeError(f"Gemini TTS 모델 호출 실패: {last}")
@@ -141,6 +149,57 @@ def guard(video: dict, terms: list[str]) -> None:
     hits = redact.find_leaks("\n".join(texts), terms)
     if hits:
         raise ValueError(f"{video['slug']}: 개인정보 의심 문구 → 렌더링 중단 ({', '.join(sorted(set(hits)))})")
+
+
+def silences(path: Path, noise_db: int = -32, min_d: float = 0.22) -> list[tuple[float, float]]:
+    """음성 파일의 쉼 구간 (중간 지점 초, 길이 초) 목록."""
+    p = subprocess.run([shorts.imageio_ffmpeg.get_ffmpeg_exe(), "-i", str(path), "-af",
+                        f"silencedetect=noise={noise_db}dB:d={min_d}", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    starts = [float(x) for x in re.findall(r"silence_start: ([\d.]+)", p.stderr)]
+    ends = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", p.stderr)]
+    return [((a + b) / 2, b - a) for a, b in zip(starts, ends)]
+
+
+def scene_boundaries(narrations: list[str], total: float, gaps: list[tuple[float, float]]) -> list[float]:
+    """장면별 시작 시각. 글자 수 비율로 예상한 경계 근처에서, 문단 사이처럼 긴 쉼을 우선해 순서대로 고른다."""
+    lens = [max(len(n), 1) for n in narrations]
+    acc, starts, last = 0, [0.0], 0.0
+    for L in lens[:-1]:
+        acc += L
+        guess = total * acc / sum(lens)
+        cands = [(m, d) for m, d in gaps if m > last + 0.8 and abs(m - guess) <= 2.5]
+        pick = min(cands, key=lambda c: abs(c[0] - guess) - 1.5 * c[1])[0] if cands else guess
+        starts.append(pick)
+        last = pick
+    return starts
+
+
+def build_props_whole(video: dict, brand: dict, provider: str, audio_root: Path, voice: str | None) -> dict:
+    """영상 1편 내레이션을 한 번에 합성(요청 1회)하고 장면 길이를 음성에 맞춘다."""
+    narr = [s.get("narration") or plain(s["text"]) for s in video["scenes"]]
+    rel = f"audio/{video['slug']}/full.mp3"
+    mp3 = audio_root / rel
+    mp3.parent.mkdir(parents=True, exist_ok=True)
+    text = "\n\n".join(narr)
+    stamp = mp3.with_suffix(".txt")   # 같은 대본·목소리면 이미 만든 음성 재사용(무료 한도 절약)
+    key = f"{provider}|{voice or DEFAULT_VOICE[provider]}\n{text}"
+    if not (mp3.exists() and stamp.exists() and stamp.read_text(encoding="utf-8") == key):
+        synthesize(provider, text, mp3, voice)
+        stamp.write_text(key, encoding="utf-8")
+    total = shorts.audio_seconds(mp3)
+    starts = scene_boundaries(narr, total, silences(mp3))
+    lead = 0.3   # 첫 장면 화면이 뜬 뒤 말 시작
+    scenes = []
+    for i, s in enumerate(video["scenes"]):
+        sc = {k: s[k] for k in ("kind", "text", "sub", "label") if k in s}
+        end = starts[i + 1] if i + 1 < len(starts) else total + 1.2
+        frames = round((end - starts[i]) * FPS) + (TRANSITION_FRAMES if i + 1 < len(starts) else 0)
+        if i == 0:
+            frames += round(lead * FPS)
+        sc["durationInFrames"] = max(frames, 2 * FPS)
+        scenes.append(sc)
+    return {"brand": brand_props(brand), "scenes": scenes, "audio": rel, "audioDelayFrames": round(lead * FPS)}
 
 
 def build_props(video: dict, brand: dict, tts: str | None, audio_root: Path, voice: str | None = None) -> dict:
@@ -183,7 +242,10 @@ def render_batch(scripts_path: Path, tts: str | None = None, only: list[str] | N
         if only and v["slug"] not in only:
             continue
         guard(v, terms)
-        props = build_props(v, brand, tts, VIDEO_DIR / "public", voice)
+        if tts == "gemini":
+            props = build_props_whole(v, brand, tts, VIDEO_DIR / "public", voice)
+        else:
+            props = build_props(v, brand, tts, VIDEO_DIR / "public", voice)
         pf = props_dir / f"{v['slug']}.json"
         pf.write_text(json.dumps(props, ensure_ascii=False), encoding="utf-8")
         mp4, png = out_dir / f"{v['slug']}.mp4", out_dir / f"{v['slug']}.png"

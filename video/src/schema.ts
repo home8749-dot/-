@@ -30,6 +30,9 @@ export const brandSchema = z.object({
 export const shortSchema = z.object({
   brand: brandSchema,
   scenes: z.array(sceneSchema),
+  /** 영상 전체 내레이션(public/ 기준, 선택). 장면별 audio 대신 한 파일로 쓸 때 */
+  audio: z.string().optional(),
+  audioDelayFrames: z.number().int().nonnegative().optional(),
 });
 
 export type Scene = z.infer<typeof sceneSchema>;

@@ -370,3 +370,10 @@ def test_gemini_tts_request_and_audio(tmp_path, monkeypatch):
     assert sent == remotion.GEMINI_MODELS[:2]
     assert 0.9 < shorts.audio_seconds(out) < 1.2
     assert remotion.DEFAULT_VOICE["gemini"] == "Charon"
+
+
+def test_scene_boundaries_prefer_long_pauses():
+    from survival_agent.channels import remotion
+    gaps = [(1.46, .5), (6.13, .99), (7.32, .67), (18.29, 1.15), (19.5, .6), (28.49, 1.04), (37.23, .95)]
+    starts = remotion.scene_boundaries(["a" * 37, "b" * 62, "c" * 59, "d" * 45, "e" * 33], 42.48, gaps)
+    assert starts == [0.0, 6.13, 18.29, 28.49, 37.23]

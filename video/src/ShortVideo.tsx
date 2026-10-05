@@ -1,7 +1,8 @@
 import { fade } from "@remotion/transitions/fade";
 import { linearTiming, TransitionSeries } from "@remotion/transitions";
 import React from "react";
-import { CalculateMetadataFunction } from "remotion";
+import { Audio } from "@remotion/media";
+import { CalculateMetadataFunction, Sequence, staticFile } from "remotion";
 import "./fonts";
 import { CtaScene } from "./scenes/CtaScene";
 import { HookScene } from "./scenes/HookScene";
@@ -14,7 +15,13 @@ const SCENES = { hook: HookScene, step: StepScene, cta: CtaScene };
  * 단디서류 쇼츠 템플릿. 장면들은 하나의 원본 템플릿으로 통제하려는 의도라
  * props 로 받아 반복 생성한다(에이전트가 매일 props JSON 만 바꿔 렌더링).
  */
-export const ShortVideo: React.FC<ShortProps> = ({ brand, scenes }) => (
+export const ShortVideo: React.FC<ShortProps> = ({ brand, scenes, audio, audioDelayFrames }) => (
+  <>
+  {audio ? (
+    <Sequence name="내레이션" from={audioDelayFrames ?? 0}>
+      <Audio src={staticFile(audio)} />
+    </Sequence>
+  ) : null}
   <TransitionSeries>
     {scenes.map((scene, i) => {
       const Comp = SCENES[scene.kind];
@@ -30,6 +37,7 @@ export const ShortVideo: React.FC<ShortProps> = ({ brand, scenes }) => (
       );
     })}
   </TransitionSeries>
+  </>
 );
 
 export const calculateShortMetadata: CalculateMetadataFunction<ShortProps> = ({ props }) => {
