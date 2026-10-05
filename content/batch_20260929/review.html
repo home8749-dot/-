@@ -62,6 +62,8 @@ pre.copy{white-space:pre-wrap;font:inherit;font-size:.85rem;margin:8px 0 0;backg
 .nowline{font-size:.82rem;min-height:2.6em}
 select{font:inherit;color:inherit;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:240px}
 input[type=range]{accent-color:var(--grid)}
+.compare{display:grid;grid-template-columns:repeat(2,minmax(0,220px));gap:14px}
+.compare figure{margin:0;display:grid;gap:6px}.compare figcaption{font-size:.82rem;font-weight:800;color:var(--muted)}
 .status{font-size:.8rem;color:var(--muted);min-height:1.2em}
 .art{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:10px;align-items:start}
 .art img{width:100%;border-radius:8px;border:1px solid var(--line);display:block}
@@ -75,9 +77,7 @@ input[type=range]{accent-color:var(--grid)}
     <p class="muted" style="margin:0">영상 7편을 보고 편마다 <b>업로드 · 보류 · 수정 요청</b>을 골라주세요. 고른 내용은 저장되어 Claude가 그대로 읽고 발행 대기열에 올립니다.</p>
   </header>
   <div id="dbNote" class="notice" hidden></div>
-  <section class="panel voicebar" aria-label="음성 미리듣기 설정"><div><div class="eyebrow">음성 미리듣기</div><h2 style="font-size:1.05rem">영상마다 <b>음성으로 보기</b>를 누르면 내레이션이 장면에 맞춰 나옵니다</h2><p class="muted" style="margin:4px 0 0;font-size:.85rem">기기 내장 음성이라 기계음에 가깝습니다. 대본·타이밍 검수용으로만 쓰고, 업로드용 영상에는 <b>Gemini 음성</b>(구글 AI 스튜디오와 같은 엔진)을 입힙니다. 말이 장면보다 길면 영상이 잠깐 멈춰 기다립니다.</p></div><div class="row"><label for="voiceSel" class="muted" style="font-size:.85rem">목소리</label><select id="voiceSel"></select><label for="rate" class="muted" style="font-size:.85rem">속도</label><input type="range" id="rate" min="0.8" max="1.3" step="0.05" value="1.05"><span id="rateVal" class="muted" style="font-size:.85rem">1.05×</span></div><div class="row"><button class="btn" type="button" id="testVoice">소리 테스트</button><span class="muted" style="font-size:.82rem" id="voiceCount"></span></div>
-<div id="voiceNote" class="notice" hidden></div>
-<p class="muted" style="margin:0;font-size:.82rem">소리가 안 나면: ① 기기 무음·볼륨 확인 ② Claude 앱 안 미리보기 대신 링크를 크롬·사파리에서 직접 열기 ③ 맥은 시스템 설정 → 손쉬운 사용 → 읽기 및 말하기에서 한국어 음성(유나) 내려받기</p></section>
+  <section class="panel" aria-label="음성"><div><div class="eyebrow">음성</div><h2 style="font-size:1.05rem">Gemini 음성을 입혔습니다 · 기본 남성(Charon)</h2><p class="muted" style="margin:4px 0 0;font-size:.85rem">구글 AI 스튜디오와 같은 Gemini TTS로 영상 1편씩 한 번에 읽혀 장면 전환을 말 사이 쉼에 맞췄습니다. 여성 목소리가 낫다면 아래 비교본을 듣고 메모에 남겨주세요.</p></div><div class="compare"><figure><figcaption>남성 · Charon (현재 적용)</figcaption><video controls playsinline preload="metadata" poster="videos/01-notice-3-spots.png" src="videos/01-notice-3-spots.mp4"></video></figure><figure><figcaption>여성 · Kore (비교용)</figcaption><video controls playsinline preload="metadata" poster="videos/01-notice-3-spots.png" src="alt/01-notice-3-spots_female.mp4"></video></figure></div><div class="row"><span class="muted" style="font-size:.85rem">목소리 선택</span><button class="btn" type="button" data-voice="Charon">남성으로</button><button class="btn" type="button" data-voice="Kore">여성으로</button><span class="status" id="voiceStatus"></span></div></section>
 
   <section class="panel" aria-labelledby="nm">
     <div><div class="eyebrow">채널명</div><h2 id="nm" style="font-size:1.1rem">채널명과 브랜드 고르기</h2></div>
@@ -127,9 +127,7 @@ function renderNames(){
 function buildCards(){
   document.getElementById("cards").innerHTML = DATA.videos.map((v, i) => `
   <article class="panel card" id="v-${v.slug}">
-    <div class="player"><video controls playsinline preload="metadata" poster="videos/${v.slug}.png" src="videos/${v.slug}.mp4"></video>
-      <button class="btn primary listen" type="button" data-listen aria-pressed="false">음성으로 보기</button>
-      <div class="nowline muted" data-now></div></div>
+    <video controls playsinline preload="metadata" poster="videos/${v.slug}.png" src="videos/${v.slug}.mp4"></video>
     <div style="display:grid;gap:12px;min-width:0">
       <div><span class="num">${String(i+1).padStart(2,"0")}</span> <h3 style="display:inline">${esc(v.title)}</h3></div>
       <ol class="script">${v.scenes.map(s => `<li><span class="k">${s.label ? esc(s.label) : KIND[s.kind]}</span><span>${marked(s.text)}${s.sub ? `<br><span class="muted">${esc(s.sub)}</span>` : ""}</span></li>`).join("")}</ol>
@@ -149,7 +147,6 @@ function buildCards(){
   DATA.videos.forEach(v => {
     const card = document.getElementById("v-" + v.slug);
     card.querySelectorAll(".decide button").forEach(b => b.onclick = () => saveReview(v.slug, b.dataset.d));
-    card.querySelector("[data-listen]").onclick = () => toggleListen(v, card);
     card.querySelector("[data-save]").onclick = () => saveReview(v.slug, (state.reviews[v.slug]||{}).decision || null);
   });
 }
@@ -184,96 +181,14 @@ async function saveChannel(name){
   catch (e) { document.getElementById("nameStatus").textContent = "저장 실패: " + (e && e.code || "오류"); }
 }
 
-function diag(msg){ const n = document.getElementById("voiceNote"); n.hidden = !msg; n.textContent = msg; }
-/* ---- 음성 미리듣기: 장면 시작마다 내레이션을 읽고, 말이 길면 영상을 잠시 멈춤 ---- */
-const synth = window.speechSynthesis || null;
-let voices = [], active = null;
-const prefs = (() => { try { return JSON.parse(localStorage.getItem("voicePrefs") || "{}"); } catch (e) { return {}; } })();
-function savePrefs(){ try { localStorage.setItem("voicePrefs", JSON.stringify(prefs)); } catch (e) {} }
-function loadVoices(){
-  if (!synth) return;
-  const all = synth.getVoices();
-  voices = all.filter(v => /^ko/i.test(v.lang));
-  const vc = document.getElementById("voiceCount");
-  if (vc) vc.textContent = `이 기기 음성 ${all.length}개 · 한국어 ${voices.length}개`;
-  const sel = document.getElementById("voiceSel");
-  const rank = v => (/(premium|enhanced|natural|neural|online|google)/i.test(v.name) ? 0 : 1);
-  voices.sort((a, b) => rank(a) - rank(b));
-  sel.innerHTML = voices.map((v, i) => `<option value="${i}">${esc(v.name)}</option>`).join("") || '<option>한국어 음성 없음</option>';
-  const keep = voices.findIndex(v => v.name === prefs.voice);
-  if (keep >= 0) sel.value = String(keep);
-  if (!voices.length) diag("한국어 음성 목록이 비어 있습니다. 기본 음성으로 시도합니다. 소리가 없으면 아래 '소리 테스트'를 눌러 주세요.");
+async function saveVoice(name){
+  const st = document.getElementById("voiceStatus");
+  document.querySelectorAll("[data-voice]").forEach(b => b.classList.toggle("primary", b.dataset.voice === name));
+  if (!db) { st.textContent = "이 화면에서는 저장되지 않습니다"; return; }
+  try { await db.doc("channel/voice").set({voice: name, updatedAt: new Date().toISOString()}); st.textContent = "저장됨: " + (name === "Kore" ? "여성" : "남성"); }
+  catch (e) { st.textContent = "저장 실패: " + (e && e.code || "오류"); }
 }
-if (synth) { loadVoices(); synth.onvoiceschanged = loadVoices; }
-else diag("이 화면에서는 음성 읽기 기능이 없습니다. 링크를 크롬·사파리에서 열어 주세요.");
-document.getElementById("testVoice").onclick = () => {
-  if (!synth) { diag("이 화면에서는 음성 읽기 기능이 없습니다(브라우저 미지원 또는 앱 미리보기 제한). 링크를 크롬·사파리에서 열어 주세요."); return; }
-  synth.cancel(); loadVoices();
-  diag("테스트 중…");
-  speak("안녕하세요. 단디서류입니다. 소리가 들리면 정상입니다.", () => {});
-};
-document.getElementById("voiceSel").onchange = e => { const v = voices[+e.target.value]; if (v) { prefs.voice = v.name; savePrefs(); } };
-const rateEl = document.getElementById("rate");
-if (prefs.rate) rateEl.value = prefs.rate;
-const showRate = () => { document.getElementById("rateVal").textContent = (+rateEl.value).toFixed(2) + "×"; };
-showRate(); rateEl.oninput = () => { prefs.rate = rateEl.value; savePrefs(); showRate(); };
-
-function sceneAt(v, t){ for (let i = v.t.length - 1; i >= 0; i--) if (t >= v.t[i][0] - 0.05) return i; return 0; }
-function speak(text, onend){
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "ko-KR"; u.rate = +rateEl.value;
-  const v = voices.length ? voices[+document.getElementById("voiceSel").value] : null; if (v) u.voice = v;
-  let started = false;
-  u.onstart = () => { started = true; diag(""); };
-  u.onend = onend;
-  u.onerror = e => { diag("음성 재생 오류: " + (e.error || "알 수 없음") + " · 브라우저에서 열어 보세요."); onend(); };
-  setTimeout(() => { if (!started && synth.speaking === false) diag("음성이 시작되지 않았습니다. 이 화면(앱 안 미리보기)이 음성 읽기를 막고 있을 수 있습니다. 아래 안내대로 브라우저에서 열어 주세요."); }, 2500);
-  synth.speak(u);
-}
-function stopListen(){
-  if (!active) return;
-  const {card, video, handlers} = active;
-  synth && synth.cancel();
-  Object.entries(handlers).forEach(([ev, fn]) => video.removeEventListener(ev, fn));
-  card.querySelector("[data-listen]").setAttribute("aria-pressed", "false");
-  card.querySelector("[data-listen]").textContent = "음성으로 보기";
-  card.querySelector("[data-now]").textContent = "";
-  active = null;
-}
-function toggleListen(v, card){
-  if (active && active.card === card) { active.video.pause(); stopListen(); return; }
-  stopListen();
-  if (!synth) { diag("이 화면에서는 음성 읽기 기능이 없습니다. 아래 안내대로 브라우저에서 열어 주세요."); return; }
-  loadVoices();
-  const video = card.querySelector("video");
-  const st = {card, video, scene: -1, speaking: false, waiting: false, handlers: {}};
-  active = st;
-  const btn = card.querySelector("[data-listen]");
-  btn.setAttribute("aria-pressed", "true"); btn.textContent = "음성 멈추기";
-  const say = i => {
-    st.scene = i; st.speaking = true;
-    card.querySelector("[data-now]").textContent = `${i + 1}/${v.scenes.length} · ${v.scenes[i].narration}`;
-    speak(v.scenes[i].narration, () => {
-      if (active !== st) return;
-      st.speaking = false;
-      if (st.waiting) { st.waiting = false; video.play(); }
-    });
-  };
-  st.handlers.timeupdate = () => {
-    const t = video.currentTime, i = sceneAt(v, t);
-    if (i !== st.scene && !st.speaking) say(i);
-    else if (st.speaking && t >= v.t[st.scene][1] - 0.15 && !video.paused) { st.waiting = true; video.pause(); }
-  };
-  st.handlers.seeking = () => { synth.cancel(); st.speaking = false; st.waiting = false; st.scene = -1; };
-  st.handlers.ended = () => { if (!st.speaking) stopListen(); };
-  st.handlers.pause = () => { if (!st.waiting && active === st) { synth.pause(); } };
-  st.handlers.play = () => { if (active === st && synth.paused) synth.resume(); };
-  Object.entries(st.handlers).forEach(([ev, fn]) => video.addEventListener(ev, fn));
-  video.currentTime = 0;
-  say(0);                       // 첫 발화는 버튼 클릭 안에서 시작해야 휴대폰에서도 소리가 남
-  video.play();
-}
-
+document.querySelectorAll("[data-voice]").forEach(b => b.onclick = () => saveVoice(b.dataset.voice));
 document.addEventListener("input", e => { if (e.target.tagName === "TEXTAREA") e.target.dataset.dirty = "1"; });
 buildNames(); buildCards(); renderNames(); renderReviews();
 (async () => {
@@ -282,6 +197,7 @@ buildNames(); buildCards(); renderNames(); renderReviews();
   if (!db) { note.hidden = false; note.textContent = "저장 기능을 불러오지 못했습니다. 로그인한 상태로 claude.ai에서 열면 결정이 저장됩니다."; return; }
   db.collection("reviews").onSnapshot(snap => { snap.docs.forEach(d => { state.reviews[d.id] = d.data(); }); renderReviews(); },
     () => { note.hidden = false; note.textContent = "저장된 결정을 불러오지 못했습니다. 새로고침해 주세요."; });
+  db.doc("channel/voice").onSnapshot(d => { if (d.exists) { const n = d.data().voice; document.querySelectorAll("[data-voice]").forEach(b => b.classList.toggle("primary", b.dataset.voice === n)); document.getElementById("voiceStatus").textContent = "선택됨: " + (n === "Kore" ? "여성" : "남성"); } });
   db.doc("channel/choice").onSnapshot(d => { if (d.exists) { state.channel = d.data(); renderNames(); } });
 })();
 </script>
