@@ -3,6 +3,8 @@
   python -m survival_agent render-batch content/batch_20260929/scripts.json [--tts edge]
 
 - 대본 형식: content/batch_20260929/scripts.json 참고. 문구의 ==강조== 는 형광펜으로 그어짐
+- --tts gemini [권장]: Gemini TTS(구글 AI 스튜디오와 같은 음성). 환경변수 GEMINI_API_KEY(AI 스튜디오 키) 필요
+  기본 목소리 Charon(차분한 남성), 여성 대안 Kore. 말투는 GEMINI_STYLE 지시문으로 조절
 - --tts google: Google Cloud TTS Chirp 3 HD(가장 자연스러운 등급). 환경변수 GOOGLE_TTS_API_KEY 필요
   기본 목소리 ko-KR-Chirp3-HD-Charon(차분한 남성). 여성 대안 ko-KR-Chirp3-HD-Kore → --voice 로 지정
 - --tts edge: 무료 edge-tts. 기본 ko-KR-InJoonNeural(남성), 대안 ko-KR-SunHiNeural(여성)
@@ -43,7 +45,10 @@ def brand_props(brand: dict) -> dict:
     return {"name": brand["name"], "sealText": brand["seal_text"], "footer": brand["footer"], "colors": brand["colors"]}
 
 
-DEFAULT_VOICE = {"google": "ko-KR-Chirp3-HD-Charon", "edge": "ko-KR-InJoonNeural"}
+DEFAULT_VOICE = {"gemini": "Charon", "google": "ko-KR-Chirp3-HD-Charon", "edge": "ko-KR-InJoonNeural"}
+GEMINI_MODELS = ["gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts", "gemini-2.5-pro-preview-tts"]
+GEMINI_STYLE = ("정부지원사업을 오래 다뤄 본 차분하고 신뢰감 있는 컨설턴트가, 처음 준비하는 창업자에게 "
+                "옆에서 설명하듯 자연스럽게 말해 주세요. 과장 없이 또박또박, 문장 끝은 부드럽게 내려 주세요. 읽을 문장:")
 
 
 def edge_tts(text: str, out: Path, voice: str, rate: str = "+5%") -> None:
@@ -71,9 +76,62 @@ def google_tts(text: str, out: Path, voice: str, rate: float = 1.05) -> None:
         out.write_bytes(base64.b64decode(json.loads(r.read())["audioContent"]))
 
 
+def _pcm_to_wav(pcm: bytes, rate: int = 24000) -> bytes:
+    import struct
+    return (b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt " +
+            struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16) + b"data" + struct.pack("<I", len(pcm)) + pcm)
+
+
+def gemini_tts(text: str, out: Path, voice: str, post=None) -> None:
+    """Gemini API TTS. 응답은 base64 오디오(16bit PCM 24kHz 모노 또는 WAV) → mp3 로 저장."""
+    import base64
+    import urllib.error
+    import urllib.request
+
+    key = os.environ.get("GEMINI_API_KEY", "")
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY 환경변수가 없음 (aistudio.google.com 에서 발급)")
+    style = os.environ.get("GEMINI_STYLE", GEMINI_STYLE)
+    body = {"contents": [{"parts": [{"text": f"{style}\n{text}"}]}],
+            "generationConfig": {"responseModalities": ["AUDIO"],
+                                 "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
+
+    def _post(model: str) -> dict:
+        req = urllib.request.Request(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": key})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return json.loads(r.read())
+
+    post = post or _post
+    models = [os.environ["GEMINI_TTS_MODEL"]] if os.environ.get("GEMINI_TTS_MODEL") else GEMINI_MODELS
+    last = None
+    for model in models:
+        try:
+            resp = post(model)
+            break
+        except urllib.error.HTTPError as e:  # 모델 이름이 바뀌었으면 다음 후보로
+            last = e
+            if e.code not in (400, 404):
+                raise
+    else:
+        raise RuntimeError(f"Gemini TTS 모델 호출 실패: {last}")
+    part = next(p for p in resp["candidates"][0]["content"]["parts"] if "inlineData" in p)
+    audio = base64.b64decode(part["inlineData"]["data"])
+    rate = 24000
+    m = re.search(r"rate=(\d+)", part["inlineData"].get("mimeType", ""))
+    if m:
+        rate = int(m.group(1))
+    wav = audio if audio[:4] == b"RIFF" else _pcm_to_wav(audio, rate)
+    tmp = out.with_suffix(".wav")
+    tmp.write_bytes(wav)
+    shorts._ffmpeg("-i", str(tmp), "-ac", "1", "-ar", "44100", "-b:a", "160k", str(out))
+    tmp.unlink()
+
+
 def synthesize(provider: str, text: str, out: Path, voice: str | None) -> None:
     v = voice or DEFAULT_VOICE[provider]
-    (google_tts if provider == "google" else edge_tts)(text, out, v)
+    {"gemini": gemini_tts, "google": google_tts, "edge": edge_tts}[provider](text, out, v)
 
 
 def guard(video: dict, terms: list[str]) -> None:

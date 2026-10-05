@@ -94,7 +94,9 @@ python -m survival_agent revenue 29000 "크몽 가이드 1건"   # 실제 입금
 ```bash
 cd video && npm i && cd ..                        # 최초 1회 (Node 22 이상)
 python -m survival_agent render-batch content/batch_20260929/scripts.json             # 자막형(무음)
-export GOOGLE_TTS_API_KEY=...                                                          # 권장: 가장 자연스러운 Chirp 3 HD
+export GEMINI_API_KEY=...                                                              # 권장: Gemini TTS (aistudio.google.com 에서 키 발급)
+python -m survival_agent render-batch content/batch_20260929/scripts.json --tts gemini                 # 기본 Charon(차분한 남성), --voice Kore(여성)
+export GOOGLE_TTS_API_KEY=...                                                          # 대안: Google Cloud TTS Chirp 3 HD
 python -m survival_agent render-batch content/batch_20260929/scripts.json --tts google                 # 기본 목소리 Charon(차분한 남성)
 python -m survival_agent render-batch content/batch_20260929/scripts.json --tts google --voice ko-KR-Chirp3-HD-Kore   # 여성
 pip install edge-tts && python -m survival_agent render-batch content/batch_20260929/scripts.json --tts edge   # 무료 대안

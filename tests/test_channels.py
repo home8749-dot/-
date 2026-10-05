@@ -348,3 +348,25 @@ def test_voice_render_props_use_audio_length(tmp_path, monkeypatch):
     assert abs(props["scenes"][0]["durationInFrames"] - round(2.6 * 30)) <= 2  # 음성 약 2초 + 0.6초
     assert props["scenes"][1]["durationInFrames"] - props["scenes"][0]["durationInFrames"] == 8  # 전환 겹침 보정
     assert remotion.DEFAULT_VOICE["google"] == "ko-KR-Chirp3-HD-Charon"
+
+
+def test_gemini_tts_request_and_audio(tmp_path, monkeypatch):
+    import base64
+    from survival_agent.channels import remotion
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
+    sent = []
+
+    def fake_post(model):
+        sent.append(model)
+        if model == remotion.GEMINI_MODELS[0]:   # 첫 모델이 없어졌다고 가정 → 다음 후보로
+            import urllib.error
+            raise urllib.error.HTTPError("u", 404, "not found", {}, None)
+        pcm = b"\x00\x00" * 24000  # 1초 무음 PCM
+        return {"candidates": [{"content": {"parts": [{"inlineData": {
+            "mimeType": "audio/L16;codec=pcm;rate=24000", "data": base64.b64encode(pcm).decode()}}]}}]}
+    out = tmp_path / "a.mp3"
+    remotion.gemini_tts("공고문 삼십 쪽", out, "Charon", post=fake_post)
+    assert sent == remotion.GEMINI_MODELS[:2]
+    assert 0.9 < shorts.audio_seconds(out) < 1.2
+    assert remotion.DEFAULT_VOICE["gemini"] == "Charon"
